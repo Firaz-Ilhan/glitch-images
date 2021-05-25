@@ -8,21 +8,29 @@ from PIL import Image  # pip install Pillow
 parser = argparse.ArgumentParser(description="glitch images")
 
 # arguments
-parser.add_argument("-i", "--input", help="input file path")
-parser.add_argument("-o", "--output", help="output file path")
+parser.add_argument("-i", "--input", help="input file path", required=True)
+parser.add_argument("-o", "--output", help="output file path", required=True)
 parser.add_argument("-g", "--gif", type=int, help="generate gif")
 
 args = parser.parse_args()
 
 
 def convert_to_jpeg_progressive(input_path, output_path):
-    image = Image.open(input_path).convert('RGB')
-    image.save(output_path, 'jpeg', optimize=True, progressive=True)
+    try:
+        image = Image.open(input_path).convert('RGB')
+        image.save(output_path, 'jpeg', optimize=True, progressive=True)
+    except FileNotFoundError:
+        print(f"the file {input_path} does not exist")
+        raise SystemExit
 
 
 def read_file(input_path):
-    with open(input_path, "rb") as i:
-        return bytearray(i.read())
+    try:
+        with open(input_path, "rb") as i:
+            return bytearray(i.read())
+    except FileNotFoundError:
+        print(f"the file {input_path} does not exist")
+        raise SystemExit
 
 
 def manipulate_bytes(bytes_array, skip=8):
@@ -31,14 +39,18 @@ def manipulate_bytes(bytes_array, skip=8):
     random.seed(seed_value)
     for i in range(0, len(bytes_clone), skip):
         if bytes_clone[i] == 221:
-            rnd = random.randint(128, 254)
-            bytes_clone[i] = rnd
+            bytes_clone[i] = random.randint(128, 254)
     return bytes_clone
 
 
 def write_file(output_path, manipulated_bytes):
-    with open(output_path, 'wb') as o:
-        o.write(manipulated_bytes)
+    try:
+        with open(output_path, 'wb') as o:
+            o.write(manipulated_bytes)
+            print(f"image {output_path} saved")
+    except Exception:
+        print(f"could not save {output_path}")
+        raise SystemExit
 
 
 def create_gif(output_path, byte_array, number_of_images):
@@ -49,12 +61,12 @@ def create_gif(output_path, byte_array, number_of_images):
         new_bytes = manipulate_bytes(byte_array)
         new_image = Image.open(io.BytesIO(new_bytes))
         all_images.append(new_image)
-        print("append", i)
+        print("append image", i + 1)
 
     print("saving gif...")
     image1.save(output_path, save_all=True, append_images=all_images,
                 duration=250, optimize=True, loop=0)
-    print("gif saved")
+    print(f"gif {output_path} saved")
 
 
 if __name__ == '__main__':
