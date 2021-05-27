@@ -8,8 +8,8 @@ from PIL import Image  # pip install Pillow
 parser = argparse.ArgumentParser(description="glitch images")
 
 # arguments
-parser.add_argument("-i", "--input", help="input file path", required=True)
-parser.add_argument("-o", "--output", help="output file path", required=True)
+parser.add_argument("-i", "--infile", help="infile file path", required=True)
+parser.add_argument("-o", "--outfile", help="outfile file path", required=True)
 parser.add_argument("-g", "--gif", type=int, help="generate gif")
 parser.add_argument("-s", "--skip", type=int, default=8,
                     help="higher value means less glitch - Default is set to 8")
@@ -17,24 +17,24 @@ parser.add_argument("-s", "--skip", type=int, default=8,
 args = parser.parse_args()
 
 
-def convert_to_jpeg_progressive(input_path, output_path):
+def convert_to_jpeg_progressive(infile_path, outfile_path):
     try:
-        image = Image.open(input_path).convert('RGB')
-        image.save(output_path, 'jpeg', optimize=True, progressive=True)
+        image = Image.open(infile_path).convert('RGB')
+        image.save(outfile_path, 'jpeg', optimize=True, progressive=True)
     except FileNotFoundError:
-        print(f"the file {input_path} does not exist")
+        print(f"the file {infile_path} does not exist")
         raise SystemExit
     except Exception:
-        print(f"could not save {output_path}, check permissions")
+        print(f"could not save {outfile_path}, check permissions")
         raise SystemExit
 
 
-def read_file(input_path):
+def read_file(infile_path):
     try:
-        with open(input_path, "rb") as i:
+        with open(infile_path, "rb") as i:
             return bytearray(i.read())
     except FileNotFoundError:
-        print(f"the file {input_path} does not exist")
+        print(f"the file {infile_path} does not exist")
         raise SystemExit
 
 
@@ -48,13 +48,13 @@ def manipulate_bytes(bytes_array, skip):
     return bytes_clone
 
 
-def write_file(output_path, manipulated_bytes):
+def write_file(outfile_path, manipulated_bytes):
     try:
-        with open(output_path, 'wb') as o:
+        with open(outfile_path, 'wb') as o:
             o.write(manipulated_bytes)
-            print(f"image {output_path} saved")
+            print(f"{outfile_path} saved")
     except Exception:
-        print(f"could not save {output_path}")
+        print(f"could not save {outfile_path}")
         raise SystemExit
 
 
@@ -70,21 +70,21 @@ def append_images(byte_array, number_of_images):
     return all_images
 
 
-def create_gif(output_path, all_images):
-    image1 = Image.open(args.output)
+def create_gif(outfile_path, all_images):
+    image1 = Image.open(args.outfile)
 
     print("saving gif...")
-    image1.save(output_path, save_all=True, append_images=all_images,
+    image1.save(outfile_path, save_all=True, append_images=all_images,
                 duration=250, optimize=True, loop=0)
-    print(f"{output_path} saved")
+    print(f"{outfile_path} saved")
 
 
 if __name__ == '__main__':
-    convert_to_jpeg_progressive(args.input, args.output)
-    original_bytes = read_file(args.output)
+    convert_to_jpeg_progressive(args.infile, args.outfile)
+    original_bytes = read_file(args.outfile)
     if args.gif is None:
         single_byte_array = manipulate_bytes(original_bytes, args.skip)
-        write_file(args.output, single_byte_array)
+        write_file(args.outfile, single_byte_array)
     else:
         images = append_images(original_bytes, args.gif)
-        create_gif(args.output, images)
+        create_gif(args.outfile, images)
