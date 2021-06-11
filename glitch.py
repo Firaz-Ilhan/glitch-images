@@ -3,7 +3,7 @@ import io
 import random
 import sys
 
-from PIL import Image  # pip install Pillow
+from PIL import Image, ImageChops  # pip install Pillow
 
 parser = argparse.ArgumentParser(description="glitch images")
 
@@ -11,80 +11,106 @@ parser = argparse.ArgumentParser(description="glitch images")
 parser.add_argument("-i", "--infile", help="infile file path", required=True)
 parser.add_argument("-o", "--outfile", help="outfile file path", required=True)
 parser.add_argument("-g", "--gif", type=int, help="generate gif")
-parser.add_argument("-s", "--skip", type=int, default=8,
-                    help="higher value means less glitch - Default is set to 8")
+parser.add_argument("-s", "--skip", type=int, default=20,
+                    help="insert-mode: higher value means less glitch (Default: 20)")
+parser.add_argument("-m", "--mode", default="shift",
+                    help="insert, shift (default)")
 
 args = parser.parse_args()
 
 
-def convert_to_jpeg_progressive(infile_path, outfile_path):
+def create_jpg_copy(infile, outfile):
     try:
-        image = Image.open(infile_path).convert('RGB')
-        image.save(outfile_path, 'jpeg', optimize=True, progressive=True)
+        image = Image.open(infile).convert('RGB')
+        image.save(outfile, 'jpeg', optimize=True, progressive=True)
     except FileNotFoundError:
-        print(f"the file {infile_path} does not exist")
+        print(f"the file {infile} does not exist")
         raise SystemExit
     except Exception:
-        print(f"could not save {outfile_path}, check permissions")
+        print(f"could not save {outfile}, check permissions")
         raise SystemExit
 
 
-def read_file(infile_path):
+def get_bytearray(infile):
     try:
-        with open(infile_path, "rb") as i:
+        with open(infile, "rb") as i:
             return bytearray(i.read())
     except FileNotFoundError:
-        print(f"the file {infile_path} does not exist")
+        print(f"the file {infile} does not exist")
         raise SystemExit
 
 
-def manipulate_bytes(bytes_array, skip):
-    bytes_clone = bytearray.copy(bytes_array)
-    seed_value = random.randrange(sys.maxsize)
-    random.seed(seed_value)
+def insert_random_bytes(image, skip):
+    byte_array = get_bytearray(image)
+    bytes_clone = bytearray.copy(byte_array)
     for i in range(0, len(bytes_clone), skip):
         if bytes_clone[i] == 221:
+            seed_value = random.randrange(sys.maxsize)
+            random.seed(seed_value)
             bytes_clone[i] = random.randint(128, 254)
-    return bytes_clone
+    return Image.open(io.BytesIO(bytes_clone))
 
 
-def write_file(outfile_path, manipulated_bytes):
-    try:
-        with open(outfile_path, 'wb') as o:
-            o.write(manipulated_bytes)
-            print(f"{outfile_path} saved")
-    except Exception:
-        print(f"could not save {outfile_path}")
-        raise SystemExit
+def shift_colors(infile, offset):
+    infile_image = Image.open(infile)
+    layers = list(infile_image.split())
+    layers[0] = ImageChops.offset(layers[1], offset, 0)
+    layers[1] = ImageChops.offset(layers[0], -offset, 0)
+    result = Image.merge(infile_image.mode, layers)
+    return result
 
 
-def append_images(byte_array, number_of_images):
+def append_images(image, number_of_frames):
     all_images = []
 
-    for i in range(number_of_images):
-        new_bytes = manipulate_bytes(byte_array, args.skip)
-        new_image = Image.open(io.BytesIO(new_bytes))
-        all_images.append(new_image)
-        print("append image", i + 1)
+    for i in range(number_of_frames):
+        if args.mode == "shift":
+            seed_value = random.randrange(sys.maxsize)
+            random.seed(seed_value)
+            new_image = shift_colors(image, random.randint(-200, 200))
+            all_images.append(new_image)
+            print("append image", i + 1)
+        elif args.mode == "insert":
+            new_image = insert_random_bytes(image, args.skip)
+            all_images.append(new_image)
+            print("append image", i + 1)
 
-    return all_images
+    if all_images:
+        return all_images
 
 
-def create_gif(outfile_path, all_images):
-    image1 = Image.open(args.outfile)
+def save_image(image, outfile):
+    print("saving image")
+    image.save(outfile, 'JPEG', optimize=True, progressive=True)
+    print(f"{outfile} saved")
+
+
+def create_gif(outfile, all_images):
+    image = Image.open(args.outfile)
 
     print("saving gif...")
-    image1.save(outfile_path, save_all=True, append_images=all_images,
-                duration=250, optimize=True, loop=0)
-    print(f"{outfile_path} saved")
+    image.save(outfile, save_all=True, append_images=all_images,
+               duration=250, optimize=True, loop=0)
+    print(f"{outfile} saved")
 
 
 if __name__ == '__main__':
-    convert_to_jpeg_progressive(args.infile, args.outfile)
-    original_bytes = read_file(args.outfile)
+    modes = ["shift", "insert"]
+
+    if args.mode not in modes:
+        sys.exit(f"unknown mode: {args.mode}")
+
+    create_jpg_copy(args.infile, args.outfile)
+
     if args.gif is None:
-        single_byte_array = manipulate_bytes(original_bytes, args.skip)
-        write_file(args.outfile, single_byte_array)
+        if args.mode == "insert":
+            manipulated_image = insert_random_bytes(args.outfile, args.skip)
+            save_image(manipulated_image, args.outfile)
+        elif args.mode == "shift":
+            seed_value = random.randrange(sys.maxsize)
+            random.seed(seed_value)
+            manipulated_image = shift_colors(args.outfile, random.randint(-200, 200))
+            save_image(manipulated_image, args.outfile)
     else:
-        images = append_images(original_bytes, args.gif)
-        create_gif(args.outfile, images)
+        img = append_images(args.outfile, args.gif)
+        create_gif(args.outfile, img)
