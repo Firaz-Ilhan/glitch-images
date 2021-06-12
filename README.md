@@ -20,17 +20,34 @@ python -m pip install -r requirements.txt
 ## Usage
 
 ```sh
-glitch.py [-h] -i INFILE -o OUTFILE [-g GIF] [-s SKIP]
+glitch.py [-h] -i INFILE -o OUTFILE [-g GIF] [-s SKIP] [-off min max] [-m MODE]
 ```
 
-Example of creating a gif with 10 frames
+Show help
 
 ```sh
-python glitch.py -i in.jpg -g 10 -o out.gif
+python glitch.py -h
+```
+
+Example of creating a gif with **5** frames
+
+```sh
+python glitch.py -i in.jpg -g 5 -o out.gif
 ```
 
 Example of creating a jpg
 
 ```sh
 python glitch.py -i in.jpg -o out.jpg
+```
+
+Modes
+
+* shift (default)
+* insert
+
+**Insert** mode with **5** frames in a gif
+
+```sh
+python glitch.py -i in.jpg -m insert -g 5 -o out.gif
 ```
