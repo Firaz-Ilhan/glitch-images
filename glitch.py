@@ -13,6 +13,8 @@ parser.add_argument("-o", "--outfile", help="outfile file path", required=True)
 parser.add_argument("-g", "--gif", type=int, help="generate gif")
 parser.add_argument("-s", "--skip", type=int, default=20,
                     help="insert-mode: higher value means less glitch (Default: 20)")
+parser.add_argument("-off", "--offset", type=int, default=[-200, 200], nargs=2, metavar=('min', 'max'),
+                    help="shift-mode: set range for random offset (default: -200 200)")
 parser.add_argument("-m", "--mode", default="shift",
                     help="insert, shift (default)")
 
@@ -45,8 +47,6 @@ def insert_random_bytes(image, skip):
     bytes_clone = bytearray.copy(byte_array)
     for i in range(0, len(bytes_clone), skip):
         if bytes_clone[i] == 221:
-            seed_value = random.randrange(sys.maxsize)
-            random.seed(seed_value)
             bytes_clone[i] = random.randint(128, 254)
     return Image.open(io.BytesIO(bytes_clone))
 
@@ -65,9 +65,7 @@ def append_images(image, number_of_frames):
 
     for i in range(number_of_frames):
         if args.mode == "shift":
-            seed_value = random.randrange(sys.maxsize)
-            random.seed(seed_value)
-            new_image = shift_colors(image, random.randint(-200, 200))
+            new_image = shift_colors(image, random.randint(min_offset, max_offset))
             all_images.append(new_image)
             print("append image", i + 1)
         elif args.mode == "insert":
@@ -100,6 +98,12 @@ if __name__ == '__main__':
     if args.mode not in modes:
         sys.exit(f"unknown mode: {args.mode}")
 
+    min_offset = args.offset[0]
+    max_offset = args.offset[1]
+
+    seed_value = random.randrange(sys.maxsize)
+    random.seed(seed_value)
+
     create_jpg_copy(args.infile, args.outfile)
 
     if args.gif is None:
@@ -107,9 +111,8 @@ if __name__ == '__main__':
             manipulated_image = insert_random_bytes(args.outfile, args.skip)
             save_image(manipulated_image, args.outfile)
         elif args.mode == "shift":
-            seed_value = random.randrange(sys.maxsize)
-            random.seed(seed_value)
-            manipulated_image = shift_colors(args.outfile, random.randint(-200, 200))
+            manipulated_image = shift_colors(
+                args.outfile, random.randint(min_offset, max_offset))
             save_image(manipulated_image, args.outfile)
     else:
         img = append_images(args.outfile, args.gif)
